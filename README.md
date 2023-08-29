@@ -1,0 +1,2 @@
+# trademinder-fe
+TradeMinder Frontend
