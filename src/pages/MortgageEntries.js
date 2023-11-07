@@ -1,6 +1,7 @@
 import { Helmet } from 'react-helmet-async';
 import MUIDataTable from "mui-datatables";
 import { useState, useEffect } from 'react';
+import { useRecoilState } from 'recoil';
 // @mui
 import {
     Card,
@@ -11,21 +12,32 @@ import {
     Container,
     Typography,
     Grid,
-    TextField
+    TextField,
+    Stepper,
+    Step,
+    StepLabel,
+    Box,
+    Modal,
+    IconButton
 } from '@mui/material';
 // components
+import { mortgageState } from '../state/atoms/mortgageState';
+import { MortgageDetails, CustomerDetails } from '../sections/@dashboard/mortgage';
 import Iconify from '../components/iconify';
 // mock
-import { getMortgages } from '../_mock/mortgages';
+import { getMortgages, addMortgage, editMortgage } from '../_mock/mortgages';
 
 // ----------------------------------------------------------------------
 
 export default function MortgageEntries() {
 
     const [open, setOpen] = useState(null);
+    const [activeStep, setActiveStep] = useState(0);
     const [openAddEntryPopup, setOpenAddEntryPopup] = useState(false)
-    const [mortgages, setMortgages] = useState([]);
+    const [mortgages, setMortgages] = useRecoilState(mortgageState);
+    const [isEditing, setIsEditing] = useState(false)
     const [formValues, setFormValues] = useState({
+        shopId: '1f4c94d0-9c7e-4e9a-95d5-000000000002',
         customerName: '',
         inRelationWith: '',
         customerEmail: '',
@@ -46,10 +58,22 @@ export default function MortgageEntries() {
     useEffect(() => {
         getMortgages().then((mortgages) => {
             setMortgages(mortgages)
+            setFormValues({ ...formValues, billNumber: mortgages.length + 1 })
         })
     }, [])
 
-    const handleCloseMenu = () => {
+    const handleOpen = (event, tableMeta) => {
+        setFormValues(filteredUsers[tableMeta.rowIndex])
+        setOpen(event.currentTarget);
+    };
+
+    const handleClose = () => {
+        setFormValues({})
+        setIsEditing(false)
+        setOpen(null);
+    };
+
+    const handleCloseEntry = () => {
         setOpenAddEntryPopup(null);
     };
 
@@ -65,10 +89,28 @@ export default function MortgageEntries() {
         }));
     };
 
-    const handleFormSubmit = (e, data) => {
+    const handleFormSubmit = async (e) => {
         e.preventDefault()
-        console.log('Data: ', formValues)
+        if (isEditing) {
+            await editMortgage(formValues)
+        } else {
+            await addMortgage(formValues)
+        }
+        handleCloseEntry()
+        await getMortgages()
+
     }
+
+    function calculateTotalInterest(principalAmount, interestRate, fromDate) {
+        const annualInterestRate = Number(interestRate)
+        const currentDate = new Date();
+        const millisecondsPerDay = 24 * 60 * 60 * 1000;
+        const days = Math.round((currentDate - new Date(fromDate)) / millisecondsPerDay);
+        const dailyInterestRate = annualInterestRate / 100 / 365;
+        const totalInterest = Number(principalAmount) * ((1 + dailyInterestRate) ** days - 1);
+        return parseFloat(totalInterest.toFixed(2))
+    }
+
 
     const filteredUsers = mortgages
 
@@ -83,18 +125,88 @@ export default function MortgageEntries() {
         { name: 'customerIdProofNo', label: 'ID Proof', options: { filter: true, sort: false } },
         { name: 'itemName', label: 'Item Name', options: { filter: true, sort: false } },
         { name: 'numPieces', label: 'No. of Pieces', options: { filter: true, sort: false } },
-        { name: 'principalAmount', label: 'Principal Amount', options: { filter: true, sort: false } },
-        { name: 'interestRate', label: 'Interest', options: { filter: true, sort: false } },
+        { name: 'principalAmount', label: 'Principal Amount', options: { filter: true, sort: true } },
+        { name: 'interestRate', label: 'Interest', options: { filter: true, sort: true } },
         { name: 'marketValue', label: 'Market Value', options: { filter: true, sort: false } },
-        { name: 'weightGms', label: 'Weight(gms)', options: { filter: true, sort: false } },
+        { name: 'weightGms', label: 'Weight(gms)', options: { filter: true, sort: true } },
         { name: 'weightMg', label: 'Weight(mg)', options: { filter: true, sort: false } },
-        { name: 'dateOfMortgage', label: 'Date', options: { filter: true, sort: false } },
-        { name: '', label: 'Action', options: { filter: true, sort: false } },
+        { name: 'dateOfMortgage', label: 'Date', options: { filter: true, sort: true } },
+        {
+            name: '', label: 'Total Interest', options: {
+                filter: true, sort: false,
+                customBodyRender: (value, tableMeta) => {
+                    const rowData = filteredUsers[tableMeta.rowIndex]
+                    return (
+                        <Typography variant="h6" gutterBottom>
+                            ₹{calculateTotalInterest(rowData.principalAmount, rowData.interestRate, rowData.dateOfMortgage)}
+                        </Typography>
+                    )
+                }
+            }
+        },
+        {
+            name: '', label: 'Action', options: {
+                filter: true,
+                customBodyRender: (value, tableMeta) => {
+                    console.log(tableMeta)
+                    return (
+                        <IconButton size="large" color="inherit" onClick={(e) => handleOpen(e, tableMeta)}>
+                            <Iconify icon={'eva:more-vertical-fill'} />
+                        </IconButton>
+                    )
+                }
+            }
+        },
     ];
 
     const options = {
         filterType: 'checkbox',
     };
+
+    const steps = [
+        'Customer Details',
+        'Mortgage Details',
+    ];
+
+    const style = {
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: '50%',
+        maxWidth: '70%',
+        border: '1px solid #000',
+        borderRadius: '8px',
+        boxShadow: 24,
+        p: 4,
+    };
+
+    function getStepContent(step) {
+        switch (step) {
+            case 0:
+                return <CustomerDetails formValues={formValues} handleFormChange={handleFormChange} />;
+            case 1:
+                return <MortgageDetails formValues={formValues} handleFormChange={handleFormChange} />
+            default:
+                throw new Error('Unknown step');
+        }
+    }
+
+    const handleNext = (e) => {
+        if (activeStep === 1) {
+            handleFormSubmit(e)
+        } else {
+            setActiveStep(activeStep + 1);
+        }
+    };
+
+    const handleBack = () => {
+        setActiveStep(activeStep - 1);
+    };
+
+    const handleEditEntry = () => {
+        setIsEditing(true)
+        setOpenAddEntryPopup(true)
+    }
 
     return (
         <>
@@ -117,64 +229,47 @@ export default function MortgageEntries() {
                     <MUIDataTable title="Mortgages" data={filteredUsers} columns={columns} options={options} />
                 </Card>
             </Container>
-            <Popover
+            <Modal
                 open={Boolean(openAddEntryPopup)}
-                anchorEl={openAddEntryPopup}
-                onClose={handleCloseMenu}
-                anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
-                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                PaperProps={{
-                    sx: {
-                        p: 1,
-                        width: 300, // Adjust the width as needed
-                    },
-                }}
+                onClose={handleCloseEntry}
             >
-                <form>
-                    <Grid container spacing={2}>
+                <Card sx={style}>
+                    <Stepper activeStep={activeStep} alternativeLabel>
+                        {steps.map((label) => (
+                            <Step key={label}>
+                                <StepLabel>{label}</StepLabel>
+                            </Step>
+                        ))}
+                    </Stepper>
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 2 }}>
+                        <TextField label="Bill No." variant="standard" name="billNumber" value={isEditing ? formValues.billNumber : filteredUsers.length + 1} disabled />
+                    </Box>
+                    <Grid sx={{ px: 2 }} container spacing={2}>
+                        {getStepContent(activeStep)}
                         <Grid item xs={12}>
-                            <TextField
-                                fullWidth
-                                label="Customer Name"
-                                name="customerName"
-                                value={formValues.customerName}
-                                onChange={handleFormChange}
-                                required
-                            />
-                        </Grid>
-                        <Grid item x s={12}>
-                            <TextField
-                                fullWidth
-                                label="S/o, D/o, W/o"
-                                name="inRelationWith"
-                                value={formValues.inRelationWith}
-                                onChange={handleFormChange}
-                            />
-                        </Grid>
-                        <Grid item xs={12}>
-                            <TextField
-                                fullWidth
-                                label="Email"
-                                name="customerEmail"
-                                value={formValues.customerEmail}
-                                onChange={handleFormChange}
-                            />
-                        </Grid>
-                        {/* Add more TextFields for other fields */}
-                        <Grid item xs={12}>
-                            <Button type="submit" onClick={handleFormSubmit} variant="contained" color="primary">
-                                Add Entry
-                            </Button>
+                            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                {activeStep !== 0 && (
+                                    <Button onClick={handleBack} sx={{ mt: 3, ml: 1 }}>
+                                        Back
+                                    </Button>
+                                )}
+                                <Button
+                                    variant="contained"
+                                    onClick={handleNext}
+                                    sx={{ mt: 3 }}
+                                >
+                                    {activeStep === steps.length - 1 ? isEditing ? 'Edit Entry' : 'Add Entry' : 'Next'}
+                                </Button>
+                            </Box>
                         </Grid>
                     </Grid>
-                </form>
-            </Popover>
-
+                </Card>
+            </Modal>
 
             <Popover
                 open={Boolean(open)}
                 anchorEl={open}
-                onClose={handleCloseMenu}
+                onClose={handleClose}
                 anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
                 PaperProps={{
@@ -189,7 +284,7 @@ export default function MortgageEntries() {
                     },
                 }}
             >
-                <MenuItem>
+                <MenuItem onClick={handleEditEntry}>
                     <Iconify icon={'eva:edit-fill'} sx={{ mr: 2 }} />
                     Edit
                 </MenuItem>

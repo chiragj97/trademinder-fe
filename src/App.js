@@ -1,5 +1,6 @@
 import { BrowserRouter } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
+import { RecoilRoot } from 'recoil';
 // routes
 import Router from './routes';
 // theme
@@ -15,9 +16,11 @@ export default function App() {
     <HelmetProvider>
       <BrowserRouter>
         <ThemeProvider>
-          <ScrollToTop />
-          <StyledChart />
-          <Router />
+          <RecoilRoot>
+            <ScrollToTop />
+            <StyledChart />
+            <Router />
+          </RecoilRoot>
         </ThemeProvider>
       </BrowserRouter>
     </HelmetProvider>

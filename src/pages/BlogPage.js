@@ -1,7 +1,9 @@
 import { Helmet } from 'react-helmet-async';
+import { useRecoilValue } from 'recoil';
 // @mui
 import { Grid, Button, Container, Stack, Typography } from '@mui/material';
 // components
+import { mortgageState } from '../state/atoms/mortgageState';
 import Iconify from '../components/iconify';
 import { BlogPostCard, BlogPostsSort, BlogPostsSearch } from '../sections/@dashboard/blog';
 // mock
@@ -18,6 +20,8 @@ const SORT_OPTIONS = [
 // ----------------------------------------------------------------------
 
 export default function BlogPage() {
+  const mortgages = useRecoilValue(mortgageState);
+  console.log(mortgages)
   return (
     <>
       <Helmet>

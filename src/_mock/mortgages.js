@@ -1,7 +1,5 @@
-// import { faker } from '@faker-js/faker';
-// import { sample } from 'lodash';
 import axios from 'axios';
-// ----------------------------------------------------------------------
+import { useRecoilState } from 'recoil';
 
 export const getMortgages = async () => {
     const mortgages = await axios.get('http://localhost:5000/api/mortgaged')
@@ -9,23 +7,14 @@ export const getMortgages = async () => {
     return mortgages.data
 }
 
-// const users = [...Array(24)].map((_, index) => ({
-//   id: faker.datatype.uuid(),
-//   avatarUrl: `/assets/images/avatars/avatar_${index + 1}.jpg`,
-//   name: faker.name.fullName(),
-//   company: faker.company.name(),
-//   isVerified: faker.datatype.boolean(),
-//   status: sample(['active', 'banned']),
-//   role: sample([
-//     'Leader',
-//     'Hr Manager',
-//     'UI Designer',
-//     'UX Designer',
-//     'UI/UX Designer',
-//     'Project Manager',
-//     'Backend Developer',
-//     'Full Stack Designer',
-//     'Front End Developer',
-//     'Full Stack Developer',
-//   ]),
-// }));
+export const addMortgage = async (data) => {
+    const mortgages = await axios.post('http://localhost:5000/api/mortgaged/add', data)
+    console.log('Mortgages: ', mortgages)
+    return mortgages.data
+}
+
+export const editMortgage = async (data) => {
+    const mortgages = await axios.put(`http://localhost:5000/api/mortgaged/update/${data.id}`, data)
+    console.log('Edit Mortgage ', mortgages)
+    return mortgages.data
+}
